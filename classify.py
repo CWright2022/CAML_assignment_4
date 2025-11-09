@@ -4,6 +4,8 @@ import json
 import argparse
 import os
 import numpy as np
+from collections import Counter
+
 import tqdm
 
 # Supress sklearn warnings
