@@ -449,6 +449,101 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts, max_depth=20, min_node=5, num_trees=100, 
 
     print(f"Random Forest Accuracy = {accuracy:.4f} ({correct}/{total} correct)")
 
+    # Node we wanna analyze is the left node from the root on the first tree in the forest
+    # I just randomly chose this one because why not
+    tree = forest.trees[0]
+
+    node = tree.root
+    
+    # loop to get the deepest node that is not a leaf node
+    # while node is not None and node["feat"] is not None:
+    #     prev_node = node
+    #     node = node['left']
+    # node = prev_node 
+
+    # Can manually select the node we want, though
+    try:
+        node = node['left']['left']
+    except TypeError:  # something went wrong with getting a node this way
+        print('Uh oh! Some thing went wrong when selecting a node to calculate Gini importance stuff for.')
+        node = None
+
+    if node is None:
+        return prediction
+    # otherwise, do all this stuff, and then return prediction at the end anyway
+    # hopefully this works
+
+    # Walk all the training samples through the tree to recalculate some of the values that we need
+    def samples_reaching_node(X, root, target_node):
+        indices = []
+        for i, x in enumerate(X):
+            node_ptr = root
+            while True:
+                if node_ptr is target_node:
+                    indices.append(i)
+                    break
+                if node_ptr["feat"] is None:  # leaf
+                    break
+                # follow the split
+                if x[node_ptr["feat"]] <= node_ptr["thr"]:
+                    node_ptr = node_ptr["left"]
+                else:
+                    node_ptr = node_ptr["right"]
+        return indices
+
+    node_indices = samples_reaching_node(X_tr, tree.root, node)
+    y_at_node = Y_tr[node_indices]
+
+    # Step 2: compute class counts and Gini impurity
+    counts = np.bincount(y_at_node)
+    N = len(y_at_node)
+    probs = counts / N
+    gini = 1 - np.sum(probs ** 2)
+
+    print("\nInformation for this node:")
+    print(f"Feature index used for split: {node['feat']}")
+    print(f"Threshold: {node['thr']}")
+    print(f"# Samples reaching this node: {N}")
+    print(f"Class counts: {counts}")
+    print(f"Gini impurity: {gini:.6f}")
+    print()
+
+    # Do what we just did for the left and right node now!
+    left_child = node["left"]
+    right_child = node["right"]
+
+    if left_child is None or right_child is None:
+        print("Selected node is a leaf or missing children — cannot compute child GinIs.")
+        return prediction
+
+    # Get samples reaching the left child
+    left_indices = samples_reaching_node(X_tr, tree.root, left_child)
+    y_left = Y_tr[left_indices]
+    counts_left = np.bincount(y_left)
+    N_left = len(y_left)
+    probs_left = counts_left / N_left
+    gini_left = 1 - np.sum(probs_left ** 2)
+
+    # Get samples reaching the right child
+    right_indices = samples_reaching_node(X_tr, tree.root, right_child)
+    y_right = Y_tr[right_indices]
+    counts_right = np.bincount(y_right)
+    N_right = len(y_right)
+    probs_right = counts_right / N_right
+    gini_right = 1 - np.sum(probs_right ** 2)
+
+    print("\nInformation for LEFT child:")
+    print(f"# Samples: {N_left}")
+    print(f"Class counts: {counts_left}")
+    print(f"Gini impurity (Left): {gini_left:.6f}")
+    print()
+
+    print("Information for RIGHT child:")
+    print(f"# Samples: {N_right}")
+    print(f"Class counts: {counts_right}")
+    print(f"Gini impurity (Right): {gini_right:.6f}")
+    print()
+
     return prediction
 
 
