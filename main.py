@@ -5,6 +5,8 @@ import argparse
 import os
 import numpy as np
 from collections import Counter
+import matplotlib.pyplot as plt
+import time
 
 import tqdm
 
@@ -14,10 +16,13 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
-from sklearn.ensemble import RandomForestClassifier
+# from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 # seed value
 # (ensures consistent dataset splitting between runs)
@@ -35,9 +40,9 @@ def parse_args():
             parser.error("That directory {} does not exist!".format(x))
         else:
             return x
-    parser.add_argument('-r', '--root', type=lambda x: check_path(parser, x), 
+    parser.add_argument('-r', '--root', type=lambda x: check_path(parser, x), default= "iot_data", 
                         help='The path to the root directory containing feature files.')
-    parser.add_argument('-s', '--split', type=float, default=0.7, 
+    parser.add_argument('-s', '--split', type=float, default=0.8, 
                         help='The percentage of samples to use for training.')
 
     return parser.parse_args()
@@ -228,13 +233,13 @@ class DecisionTree:
     Splits the data into subgroups based on feature thresholds
     Intended to create increasingly pure groups or groups mostly containing the same class
     """
-    def __init__(self, maxDepth = 20, minNode = 5, featureSubcount = None, rng = None):
+    def __init__(self, max_depth = 20, min_node = 5, feature_subcount = None, rng = None):
          # Maximum depth the tree can grow to prevent overfiting
-        self.maxDepth = maxDepth       
+        self.maxDepth = max_depth       
         # Smallest number of samples allowed in a node before stopping
-        self.minNode = minNode
+        self.min_node = min_node
         # If set, only a random subset of features are considered per split          
-        self.feature_subcount = featureSubcount  
+        self.feature_subcount = feature_subcount  
         # Random number generator for reproducibility that defaults to a fixed seed
         self.rng = np.random.RandomState(0) if rng is None else rng 
         # Stores the built tree structure.
@@ -325,7 +330,7 @@ class DecisionTree:
         }
 
         # Stops if max depth is reached or there are too few samples to split further
-        if depth >= self.maxDepth or len(y) < self.minNode:
+        if depth >= self.maxDepth or len(y) < self.min_node:
             return node
 
         feat, thr, leftIndex, rightIndex, bestGini, parentGini = self.bestSplit(X, y)
@@ -370,28 +375,30 @@ class RandomForest:
     Each tree sees a random subset of training data (bootstrap sampling) and features (per-split feature subsampling)
 
     """
-    def __init__(self, numTrees = 100, maxDepth = 20, minNode = 5, dataFraction = 0.7, featureSubcount = None):
-        self.numTrees = numTrees
-        self.maxDepth = maxDepth
-        self.minNode = minNode
-        self.dataFraction = dataFraction
-        self.featureSubcount = featureSubcount
+    def __init__(self, num_trees = 100, max_depth = 20, min_node = 5, data_fraction = 0.7, feature_subcount = None):
+        self.num_trees = num_trees
+
+        self.max_depth = max_depth
+        self.min_node = min_node
+        self.data_fraction = data_fraction
+        self.feature_subcount = feature_subcount
         self.trees = []
         self.rng = np.random.RandomState(0)
 
     def fit(self, X, y):
         n = len(y)
-        bootstrap_size = max(1, int(self.dataFraction * n))
+        bootstrap_size = max(1, int(self.data_fraction * n))
 
-        for _ in range(self.numTrees):
+        for _ in range(self.num_trees
+):
             # Bootstrap sampling 
             idx = self.rng.choice(n, size = bootstrap_size, replace = True)
             X_sub, y_sub = X[idx], y[idx]
 
             tree = DecisionTree(
-                maxDepth = self.maxDepth,
-                minNode = self.minNode,
-                featureSubcount = self.featureSubcount,
+                max_depth = self.max_depth,
+                min_node = self.min_node,
+                feature_subcount = self.feature_subcount,
                 rng = self.rng
             )
             tree.fit(X_sub, y_sub)
@@ -400,42 +407,35 @@ class RandomForest:
 
     def predict(self, X):
         # Collect predictions from each tree
-        treePredictions = []
+        tree_predictions = []
         for tree in self.trees:
             # Retrieve the tree's predictions for all samples
             predictions = tree.predict(X)  
-            treePredictions.append(predictions)
-        treePredictions = np.array(treePredictions)
+            tree_predictions.append(predictions)
+        tree_predictions = np.array(tree_predictions)
 
         # Selects the most common label per sample
         final = []
-        for col in treePredictions.T:  # Iterates per sample
+        for col in tree_predictions.T:  # Iterates per sample
             final.append(np.argmax(np.bincount(col)))
         return np.array(final)
     
-def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
+def do_stage_1(X_tr, X_ts, Y_tr, Y_ts, max_depth=20, min_node=5, num_trees=100, data_fraction=0.7):
 
     # Hyperparameters (that can be tuned later)
-
-    # Stops the tree depth from exploding
-    maxDepth = 20          
-    # Prevents any splitting tiny groups
-    minNode = 5            
-    # Number of trees in the forest
-    numTrees = 100           
-    # How much of the data each tree sees
-    dataFraction = 0.7         
+     
     # Only allow each tree to look at sqrt(number of features) when splitting
     # Forces trees to learn differently and prevents same decisions
-    featureSubcount = int(np.sqrt(X_tr.shape[1])) 
+    feature_subcount = int(np.sqrt(X_tr.shape[1])) 
 
     # Create and train my Random Forest
     forest = RandomForest(
-        numTrees = numTrees,
-        maxDepth = maxDepth,
-        minNode = minNode,
-        dataFraction = dataFraction,
-        featureSubcount = featureSubcount
+        num_trees = num_trees
+,
+        max_depth = max_depth,
+        min_node = min_node,
+        data_fraction = data_fraction,
+        feature_subcount = feature_subcount
     )
     forest.fit(X_tr, Y_tr)
 
@@ -450,6 +450,125 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     print(f"Random Forest Accuracy = {accuracy:.4f} ({correct}/{total} correct)")
 
     return prediction
+
+
+def evaluate_decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=20, min_node=5, feature_subcount=None):
+    """
+    Train and evaluate a single DecisionTree, returning prediction, fit and predict times and accuracy.
+    """
+    # ensure feature subcount is plausible (DecisionTree will use all features if None)
+    start_fit = time.time()
+    dt = DecisionTree(max_depth = max_depth, min_node = min_node, feature_subcount = feature_subcount)
+    dt.fit(X_tr, Y_tr)
+    fit_time = time.time() - start_fit
+
+    start_pred = time.time()
+    pred = dt.predict(X_ts)
+    pred_time = time.time() - start_pred
+
+    acc = accuracy_score(Y_ts, pred)
+    print(f"Decision Tree Accuracy = {acc:.4f} ({np.sum(pred == Y_ts)}/{len(Y_ts)} correct)")
+    return pred, fit_time, pred_time, acc
+
+
+def evaluate_random_forest(X_tr, X_ts, Y_tr, Y_ts, max_depth=20, min_node=5, num_trees=100, data_fraction=0.7):
+    """
+    Train and evaluate the RandomForest implementation, returning prediction, fit and predict times and accuracy.
+    """
+    featureSubcount = int(np.sqrt(X_tr.shape[1]))
+    start_fit = time.time()
+    forest = RandomForest(
+        num_trees = num_trees,
+        max_depth = max_depth,
+        min_node = min_node,
+        data_fraction = data_fraction
+    )
+    forest.fit(X_tr, Y_tr)
+    fit_time = time.time() - start_fit
+
+    start_pred = time.time()
+    pred = forest.predict(X_ts)
+    pred_time = time.time() - start_pred
+
+    acc = accuracy_score(Y_ts, pred)
+    print(f"Random Forest Accuracy = {acc:.4f} ({np.sum(pred == Y_ts)}/{len(Y_ts)} correct)")
+    return pred, fit_time, pred_time, acc
+
+
+def plot_confusion_matrix(y_true, y_pred, class_names, model_name, filename=None):
+    """
+    Generate and display a confusion matrix heatmap.
+    
+    Parameters
+    ----------
+    y_true : numpy array
+             True labels.
+    y_pred : numpy array
+             Predicted labels.
+    class_names : array-like
+                  Names of classes.
+    model_name : str
+                 Name of the model (for title and filename).
+    filename : str, optional
+               Path to save the figure. If None, uses model_name to generate filename.
+    
+    Returns
+    -------
+    cm : numpy array
+         Confusion matrix.
+    """
+    cm = confusion_matrix(y_true, y_pred)
+    
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=class_names, yticklabels=class_names,
+                cbar_kws={'label': 'Count'})
+    plt.title(f'Confusion Matrix - {model_name}')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.tight_layout()
+    
+    if filename is None:
+        filename = f'confusion_matrix_{model_name.replace(" ", "_").lower()}.png'
+    
+    plt.savefig(filename, dpi=150, bbox_inches='tight')
+    print(f"Confusion matrix saved to {filename}")
+    plt.close()
+    
+    return cm
+
+
+def print_confusion_matrix(cm, class_names, model_name):
+    """
+    Print confusion matrix in a readable format.
+    
+    Parameters
+    ----------
+    cm : numpy array
+         Confusion matrix.
+    class_names : array-like
+                  Names of classes.
+    model_name : str
+                 Name of the model.
+    """
+    print(f"\nConfusion Matrix - {model_name}:")
+    print("=" * 80)
+    
+    # Print header with class names
+    header = "Predicted →"
+    for class_name in class_names:
+        header += f"\t{class_name[:10]}"
+    print(header)
+    print("-" * 80)
+    
+    # Print each row
+    for i, class_name in enumerate(class_names):
+        row = f"{class_name[:10]}\t"
+        for j in range(len(class_names)):
+            row += f"\t{cm[i][j]}"
+        print(row)
+    
+    print("=" * 80)
 
 
 
@@ -497,10 +616,56 @@ def main(args):
 
     # perform final classification
     print("Performing Stage 1 classification ... ")
-    pred = do_stage_1(X_tr_full, X_ts_full, Y_tr, Y_ts)
+    max_depth=15
+    min_node=7
+    num_trees=200
+    data_fraction=1.2
+    print(f"Testing with maxDepth={max_depth}, min_node={min_node}, num_trees={num_trees}, data_fraction={data_fraction}")
+    # Evaluate single Decision Tree (non-ensemble)
+    featureSubcount_dt = int(np.sqrt(X_tr_full.shape[1]))
+    time_start = time.time()
+    dt_pred, dt_fit_time, dt_pred_time, dt_acc = evaluate_decision_tree(
+        X_tr_full, X_ts_full, Y_tr, Y_ts,
+        max_depth=max_depth, min_node=min_node
+    )
+    time_end = time.time()
+    print(f"Decision Tree evaluation time: {time_end - time_start:.4f}s")
 
-    # print classification report
-    print(classification_report(Y_ts, pred, target_names=le.classes_))
+    time_start=time.time()
+    # Evaluate Random Forest (ensemble)
+    rf_pred, rf_fit_time, rf_pred_time, rf_acc = evaluate_random_forest(
+        X_tr_full, X_ts_full, Y_tr, Y_ts,
+        max_depth=max_depth, min_node=min_node, num_trees=num_trees
+, data_fraction=data_fraction
+    )
+    time_end = time.time()
+    print(f"Random Forest evaluation time: {time_end - time_start:.4f}s")
+
+    # Summary of results
+    print("\nSummary:\n")
+    print(f"Decision Tree  - fit: {dt_fit_time:.4f}s, predict: {dt_pred_time:.4f}s, accuracy: {dt_acc:.4f}")
+    print(f"Random Forest  - fit: {rf_fit_time:.4f}s, predict: {rf_pred_time:.4f}s, accuracy: {rf_acc:.4f}")
+
+    print("\nClassification report for Decision Tree:\n")
+    print(classification_report(Y_ts, dt_pred, target_names=le.classes_))
+
+    print("\nClassification report for Random Forest:\n")
+    print(classification_report(Y_ts, rf_pred, target_names=le.classes_))
+
+    # Generate and display confusion matrices
+    print("\n" + "=" * 80)
+    print("GENERATING CONFUSION MATRICES")
+    print("=" * 80)
+    
+    # Decision Tree confusion matrix
+    dt_cm = plot_confusion_matrix(Y_ts, dt_pred, le.classes_, "Decision Tree", 
+                                   filename="confusion_matrix_decision_tree.png")
+    print_confusion_matrix(dt_cm, le.classes_, "Decision Tree")
+    
+    # Random Forest confusion matrix
+    rf_cm = plot_confusion_matrix(Y_ts, rf_pred, le.classes_, "Random Forest",
+                                   filename="confusion_matrix_random_forest.png")
+    print_confusion_matrix(rf_cm, le.classes_, "Random Forest")
 
 
 if __name__ == "__main__":
