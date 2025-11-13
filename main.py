@@ -235,7 +235,7 @@ class DecisionTree:
     """
     def __init__(self, max_depth = 20, min_node = 5, feature_subcount = None, rng = None):
          # Maximum depth the tree can grow to prevent overfiting
-        self.maxDepth = max_depth       
+        self.max_depth = max_depth       
         # Smallest number of samples allowed in a node before stopping
         self.min_node = min_node
         # If set, only a random subset of features are considered per split          
@@ -261,63 +261,63 @@ class DecisionTree:
         # Computes the Gini formula
         return 1 - np.sum(probabilities ** 2)
 
-    def bestSplit(self, X, y):
+    def best_split(self, X, y):
         """
         Tries splitting on each feature and threshold
         Selects the split that gives the lowest weighted Gini impurity
 
         """
-        numSamples, numFeatures = X.shape
+        num_samples, num_features = X.shape
         # Sets the parent Gini node to that Gini value prior to any splitting
-        parentGini = self.gini(y)
+        parent_gini = self.gini(y)
 
         # Decide which features to attempt, either all feature or a random subset
         if self.feature_subcount is None:
-            features = range(numFeatures)
+            features = range(num_features)
         else:
-            features = self.rng.choice(numFeatures, self.feature_subcount, replace = True)
+            features = self.rng.choice(num_features, self.feature_subcount, replace = True)
 
         # Variables intended to store and track the best result
-        bestFeature, bestThreshold = None, None
-        bestLeftIndex, bestRightIndex = None, None
+        best_feature, best_threshold = None, None
+        best_left_index, best_right_index = None, None
         # Starts with zero improvement
-        bestGini = parentGini  
+        best_gini = parent_gini  
 
         # Attempts to conduct splitting on each feature
         for feat in features:
             # Sort the rows of samples by the feature values, whichmakes threshold search easier
-            sortedIndex = np.argsort(X[:, feat])
-            xSorted = X[sortedIndex, feat]
+            sorted_index = np.argsort(X[:, feat])
+            x_sorted = X[sorted_index, feat]
 
             # Thresholds occur where the feature value switches
-            for i in range(1, numSamples):
-                if xSorted[i] == xSorted[i - 1]:
+            for i in range(1, num_samples):
+                if x_sorted[i] == x_sorted[i - 1]:
                     # Skips if no new threshold is found
                     continue
-                thr = (xSorted[i] + xSorted[i - 1]) / 2
+                thr = (x_sorted[i] + x_sorted[i - 1]) / 2
 
                 left_mask = (X[:, feat] <= thr)
                 right_mask = ~left_mask
-                yLeft, yRight = y[left_mask], y[right_mask]
+                y_left, y_right = y[left_mask], y[right_mask]
 
                 # Avoids any empty splits
-                if len(yLeft) == 0 or len(yRight) == 0:
+                if len(y_left) == 0 or len(y_right) == 0:
                     continue
 
                 # The weighted gini of the split
-                giniLeft = self.gini(yLeft)
-                giniRight = self.gini(yRight)
-                giniSplit = (len(yLeft) / numSamples) * giniLeft + (len(yRight) / numSamples) * giniRight
+                gini_left = self.gini(y_left)
+                gini_right = self.gini(y_right)
+                gini_split = (len(y_left) / num_samples) * gini_left + (len(y_right) / num_samples) * gini_right
 
                 # Keeps the best split when the lower gini is optimal
-                if giniSplit < bestGini:
-                    bestGini = giniSplit
-                    bestFeature = feat
-                    bestThreshold = thr
-                    bestLeftIndex = np.where(left_mask)[0]
-                    bestRightIndex = np.where(right_mask)[0]
+                if gini_split < best_gini:
+                    best_gini = gini_split
+                    best_feature = feat
+                    best_threshold = thr
+                    best_left_index = np.where(left_mask)[0]
+                    best_right_index = np.where(right_mask)[0]
 
-        return bestFeature, bestThreshold, bestLeftIndex, bestRightIndex, bestGini, parentGini
+        return best_feature, best_threshold, best_left_index, best_right_index, best_gini, parent_gini
 
     def build(self, X, y, depth):
         # Creates a node that defaults to predicting the majority label
@@ -330,21 +330,21 @@ class DecisionTree:
         }
 
         # Stops if max depth is reached or there are too few samples to split further
-        if depth >= self.maxDepth or len(y) < self.min_node:
+        if depth >= self.max_depth or len(y) < self.min_node:
             return node
 
-        feat, thr, leftIndex, rightIndex, bestGini, parentGini = self.bestSplit(X, y)
+        feat, thr, left_index, right_index, best_gini, parent_gini = self.best_split(X, y)
 
         # If there is no helpful split, stop and return to the leaf node
-        if feat is None or bestGini >= parentGini:
+        if feat is None or best_gini >= parent_gini:
             return node
 
         # Otherwise, store the split and build the left and right subtrees
         node["feat"] = feat
         node["thr"] = thr
         # Uses recursion to build the left and right branches
-        node["left"] = self.build(X[leftIndex], y[leftIndex], depth + 1)
-        node["right"] = self.build(X[rightIndex], y[rightIndex], depth + 1)
+        node["left"] = self.build(X[left_index], y[left_index], depth + 1)
+        node["right"] = self.build(X[right_index], y[right_index], depth + 1)
         return node
 
     def fit(self, X, y):
@@ -354,7 +354,7 @@ class DecisionTree:
         self.root = self.build(X, y, depth = 0)
         return self
 
-    def predictOne(self, x):
+    def predict_one(self, x):
         # Predicts one example by using its splits to traverse the tree 
         node = self.root
         while node["feat"] is not None:  
@@ -366,7 +366,7 @@ class DecisionTree:
 
     def predict(self, X):
         # Predict labels for entire dataset
-        return np.array([self.predictOne(sample) for sample in X])
+        return np.array([self.predict_one(sample) for sample in X])
 
 
 class RandomForest:
