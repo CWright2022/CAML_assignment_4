@@ -349,7 +349,7 @@ class DecisionTree:
 
     def fit(self, X, y):
         # Ensures that the labels are integers
-        y = y.astype(int) 
+        y = y.astype(int)
         # Trains the decision tree
         self.root = self.build(X, y, depth = 0)
         return self
@@ -357,6 +357,8 @@ class DecisionTree:
     def predict_one(self, x):
         # Predicts one example by using its splits to traverse the tree 
         node = self.root
+        if node is None:
+            return None
         while node["feat"] is not None:  
             if x[node["feat"]] <= node["thr"]:
                 node = node["left"]
@@ -683,11 +685,12 @@ def main(args):
 
     print("Dataset statistics:")
     print("\t Classes: {}".format(len(le.classes_)))
-    print("\t Samples: {}".format(len(Y)))
+    print("\t Samples: {}".format(np.asarray(Y).shape[0]))
     print("\t Dimensions: ", X.shape, X_p.shape, X_d.shape, X_c.shape)
 
     # shuffle
     print("Shuffling dataset using seed {} ... ".format(SEED))
+    Y = np.asarray(Y)
     s = np.arange(Y.shape[0])
     np.random.seed(SEED)
     np.random.shuffle(s)
