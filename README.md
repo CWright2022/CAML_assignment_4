@@ -23,11 +23,19 @@ pip install -r requirements.txt
 ```
 
 ### 2. Run Main Script
+
+This will train a random forest with the static hyperparameters defined in main.py. This file contains our custom implementations of RandomForest and DecisionTree.
+
 ```bash
 python main.py -r ./iot_data     
 ```
 
 ### 3. Run Automatic Tuning Script
+
+This will automatically generate models with different hyperparameters as defined on line 181 of tuning.py. Every combonation of parameters will be generaeted and acccuracy measured. At the end, the best performing model will be selected.
+
+This script also automatically generates matplotlib charts in tuning_output/ showing how the accuracy for each hyperparameter varies.
+
 ```bash
 python tuning.py -r ./iot_data     
 ```
