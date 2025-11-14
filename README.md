@@ -26,6 +26,8 @@ pip install -r requirements.txt
 
 This will train a random forest with the static hyperparameters defined in main.py. This file contains our custom implementations of RandomForest and DecisionTree.
 
+Ensure the IoT data is present in whatever directory is identified with the -r switch.
+
 ```bash
 python main.py -r ./iot_data     
 ```
