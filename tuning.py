@@ -9,6 +9,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder  
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set(style="whitegrid")
 
 # --- Load main.py as a module ------------------------------------------------
 MAIN_PY = Path("main.py")  
@@ -174,10 +178,10 @@ def main_cli():
     X_tr_full, X_ts_full, Y_tr, Y_ts = prepare_stage1_data(args.root, args.split)
 
     # Fixed tuning search grid 
-    DEPTHS = [10, 14, 18]
-    MIN_NODES = [4, 8]
-    N_TREES = [50, 100]
-    DATA_FRACS = [0.6, 0.7]
+    DEPTHS = [10, 12, 14, 216, 30]
+    MIN_NODES = [6,7,8]
+    N_TREES = [150, 200, 250]
+    DATA_FRACS = [0.8, 1, 1.2, 1.4]
     FEATURE_SUBCOUNTS = ["sqrt", "half"]
 
     results = []
@@ -211,6 +215,46 @@ def main_cli():
     df.to_csv(outdir / "tuning_results.csv", index=False)
     with open(outdir / "best_params.json", "w") as fp:
         json.dump(best, fp, indent=2)
+
+    # Generate plots per hyperparameter showing mean accuracy
+    def plot_hyperparam(df, param, outdir):
+        """Plot mean accuracy vs values of a single hyperparameter.
+
+        Saves one PNG to outdir and returns the matplotlib Figure object.
+        """
+        # compute mean accuracy aggregated over other params
+        agg = df.groupby(param)["accuracy"].mean().reset_index()
+
+        # sort if numeric
+        try:
+            agg = agg.sort_values(by=param)
+        except Exception:
+            pass
+
+        plt.figure(figsize=(8, 5))
+        if agg[param].dtype == object or agg[param].dtype == "bool":
+            # categorical
+            ax = sns.barplot(x=param, y="accuracy", data=agg)
+        else:
+            ax = sns.lineplot(x=param, y="accuracy", data=agg, marker="o")
+
+        ax.set_title(f"Mean accuracy vs {param}")
+        ax.set_ylabel("Mean accuracy")
+        ax.set_xlabel(param)
+        plt.tight_layout()
+
+        fname = outdir / f"accuracy_vs_{param}.png"
+        plt.savefig(fname, dpi=150)
+        plt.close()
+        print(f"Saved plot: {fname}")
+
+        return fname
+
+    # Call plotting for each hyperparameter column we swept
+    hyperparams = ["maxDepth", "minNode", "numTrees", "dataFraction", "featureSubcount"]
+    for hp in hyperparams:
+        if hp in df.columns:
+            plot_hyperparam(df, hp, outdir)
 
     print("\nTUNING COMPLETE")
     print("Best parameters:")
