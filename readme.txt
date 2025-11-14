@@ -9,7 +9,7 @@ This project classifies IoT Devices using network traffic data. It implements De
 
 Setup: 
 1. Install packages
-- pip -r requirements.txt
+- pip3 -r requirements.txt
 2. run main.py
 - python3 main.py
 

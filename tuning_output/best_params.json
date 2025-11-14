@@ -1,0 +1,10 @@
+{
+  "maxDepth": 18,
+  "minNode": 8,
+  "numTrees": 100,
+  "dataFraction": 0.7,
+  "featureSubcount": "half",
+  "accuracy": 0.9886494805694498,
+  "train_time_s": 5.382638931274414,
+  "predict_time_s": 0.3143141269683838
+}
