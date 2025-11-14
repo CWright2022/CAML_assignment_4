@@ -13,6 +13,10 @@ from sklearn.preprocessing import LabelEncoder
 # --- Load main.py as a module ------------------------------------------------
 MAIN_PY = Path("main.py")  
 spec = importlib.util.spec_from_file_location("main", str(MAIN_PY))
+if spec is None:
+    raise ImportError(f"Could not load main.py from path: {MAIN_PY}")
+if spec.loader is None:
+    raise ImportError(f"Could not load main.py from path: {MAIN_PY}")
 main = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(main)
 
@@ -147,7 +151,7 @@ def main_cli():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-r", "--root",
-        required=True,
+        default = "iot_data",
         help="Path to data folder (same as main.py expects, e.g. ./iot_data)."
     )
     parser.add_argument(

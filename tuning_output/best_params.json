@@ -1,10 +1,10 @@
 {
-  "maxDepth": 18,
-  "minNode": 8,
-  "numTrees": 100,
+  "maxDepth": 14,
+  "minNode": 4,
+  "numTrees": 50,
   "dataFraction": 0.7,
   "featureSubcount": "half",
-  "accuracy": 0.9886494805694498,
-  "train_time_s": 5.382638931274414,
-  "predict_time_s": 0.3143141269683838
+  "accuracy": 0.9925079243108251,
+  "train_time_s": 37.851829528808594,
+  "predict_time_s": 2.246818780899048
 }
