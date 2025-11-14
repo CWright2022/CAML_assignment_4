@@ -177,11 +177,12 @@ def main_cli():
     # Prepare Stage 1 dataset once and reuse for all hyperparameter combinations
     X_tr_full, X_ts_full, Y_tr, Y_ts = prepare_stage1_data(args.root, args.split)
 
-    # Fixed tuning search grid 
-    DEPTHS = [10, 12, 14, 216, 30]
-    MIN_NODES = [6,7,8]
-    N_TREES = [150, 200, 250]
-    DATA_FRACS = [0.8, 1, 1.2, 1.4]
+
+    # ---- ALL COMBONATION OF HYPERPARAMETERS TO TEST ----
+    DEPTHS = [10,15,20]
+    MIN_NODES = [3,7,10]
+    N_TREES = [200]
+    DATA_FRACS = [1]
     FEATURE_SUBCOUNTS = ["sqrt", "half"]
 
     results = []
