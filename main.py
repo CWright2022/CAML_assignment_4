@@ -614,11 +614,12 @@ def plot_confusion_matrix(y_true, y_pred, class_names, model_name, filename=None
     cm : numpy array
          Confusion matrix.
     """
-    cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, normalize='true')
     
     plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+    sns.heatmap(cm, annot=True, fmt='.2f', cmap='Blues', 
                 xticklabels=class_names, yticklabels=class_names,
+                annot_kws={'size':6},
                 cbar_kws={'label': 'Count'})
     plt.title(f'Confusion Matrix - {model_name}')
     plt.ylabel('True Label')
